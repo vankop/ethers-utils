@@ -1,0 +1,19 @@
+{
+  "name": "ether-utils",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "MIT",
+  "dependencies": {
+    "ethers": "^6.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.1.1",
+    "prettier": "^2.8.8",
+    "typescript": "^5.0.4"
+  },
+  "scripts": {
+    "pretty": "prettier --config .prettierrc 'src/**/*.ts'",
+    "type": "tsc --noEmit",
+    "build": "tsc"
+  }
+}

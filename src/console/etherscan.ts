@@ -6,6 +6,11 @@ export function txhash(hash: string) {
   return hyperLink(`https://etherscan.io/tx/${hash}`, prettyAddress(hash));
 }
 
+export function block(num: number) {
+  const n = num.toString();
+  return hyperLink(`https://etherscan.io/block/${num}`, `#${n}`);
+}
+
 export function address(addr: string) {
   return hyperLink(`https://etherscan.io/address/${addr}`, prettyAddress(addr));
 }

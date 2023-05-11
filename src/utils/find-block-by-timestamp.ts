@@ -40,20 +40,20 @@ async function _findBlockByTimestamp(
   );
   const newExpectedMiddle = expectedBlock.number + discrepancyInBlocks;
 
-  console.log('---------------------------------------');
-  console.log(
-    `target timestamp (${timestamp}) lies ${k} of the way from block #${blockStart} (t=${t0}) to block #${
-      blockEnd || 'latest'
-    } (t=${t1})`
-  );
-  console.log(
-    `Expected block# assuming linearity: ${expectedBlock.number} (t=${expectedBlock.timestamp})`
-  );
-  console.log(
-    'Expected nblocks required to reach target (again assuming linearity):',
-    discrepancyInBlocks
-  );
-  console.log('New guess at block #:', newExpectedMiddle);
+  // console.log('---------------------------------------');
+  // console.log(
+  //   `target timestamp (${timestamp}) lies ${k} of the way from block #${blockStart} (t=${t0}) to block #${
+  //     blockEnd || 'latest'
+  //   } (t=${t1})`
+  // );
+  // console.log(
+  //   `Expected block# assuming linearity: ${expectedBlock.number} (t=${expectedBlock.timestamp})`
+  // );
+  // console.log(
+  //   'Expected nblocks required to reach target (again assuming linearity):',
+  //   discrepancyInBlocks
+  // );
+  // console.log('New guess at block #:', newExpectedMiddle);
 
   const r = Math.abs(discrepancyInBlocks);
   if (r === 0) return expectedBlock;

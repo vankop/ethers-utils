@@ -45,7 +45,7 @@ export function viewAllAddresses() {
   );
 }
 
-export function getAddress(someSting: string) {
+export function resolveAddress(someSting: string) {
   return withConfig(
     ADDRESS_FILENAME,
     (config) => {

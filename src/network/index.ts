@@ -3,6 +3,7 @@ import {
   renderProviderInfo as renderInfuraProviderInfo
 } from './infura';
 import { withConfig } from '../configs';
+import { WebSocketProvider } from 'ethers';
 
 const NETWORK_FILENAME = 'network.json';
 
@@ -63,8 +64,11 @@ export function renderAllNetworks() {
   );
 }
 
+let _provider: WebSocketProvider;
+
 export function createProvider() {
-  return withConfig(
+  if (_provider) return _provider;
+  _provider = withConfig(
     NETWORK_FILENAME,
     (config) => {
       if (!config.use) throw new Error('No network config!');
@@ -75,7 +79,14 @@ export function createProvider() {
       if ('infura' in data) {
         return createInfuraProvider(data.infura);
       }
+      throw new Error('No configuration was found for network!');
     },
     true
   );
+  return _provider;
+}
+
+export function destroy() {
+  if (_provider) return _provider.destroy();
+  return Promise.resolve();
 }

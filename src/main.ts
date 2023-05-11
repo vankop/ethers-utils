@@ -2,7 +2,7 @@ import { Table } from 'console-table-printer';
 import { createProvider } from './network';
 import { findBlockByTimestamp } from './utils/find-block-by-timestamp';
 import { amount } from './console/amount';
-import { allTransactionsInRange } from './utils/all-transactions-in-range';
+import { allTransactionsInRange } from './transactions/all-transactions-in-range';
 import { address, txhash } from './console/etherscan';
 
 const BUTTER_TOKEN_CONTRACT = '0x0d248ce39e26fb00f911fb1e7a45a00d8c94341c';

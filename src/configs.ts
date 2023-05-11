@@ -45,7 +45,13 @@ export function withConfig(
   try {
     config = readConfig(pth, configName);
   } catch {}
-  const r = fn(config);
-  !readonly && writeConfig(pth, configName, config);
+  let r = fn(config);
+  if (!readonly) {
+    if (r instanceof Promise) {
+      r = r.then(() => writeConfig(pth, configName, config));
+    } else {
+      writeConfig(pth, configName, config);
+    }
+  }
   return r;
 }

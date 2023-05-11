@@ -13,10 +13,15 @@ export async function allTransactionsInRange(
   blockEnd: number,
   contractAddress: string,
   abi: string[],
-  provider: WebSocketProvider
+  provider: WebSocketProvider,
+  transferFilter?: { from: string } | { to: string }
 ) {
+  const from =
+    transferFilter && 'from' in transferFilter ? transferFilter.from : null;
+  const to =
+    transferFilter && 'to' in transferFilter ? transferFilter.to : null;
   const contract = new Contract(contractAddress, abi, { provider });
-  const filter = contract.filters.Transfer();
+  const filter = contract.filters.Transfer(from, to);
   const events = await contract.queryFilter(filter, blockStart, blockEnd);
   const transactions: Transaction[] = [];
 

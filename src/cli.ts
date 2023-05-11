@@ -1,4 +1,6 @@
-export function keyValueOptionsToObject(strs: string[]) {
+export function keyValueOptionsToObject(
+  strs: string[]
+): Record<string, string> {
   const obj: Record<string, string> = {};
   try {
     for (const str of strs) {

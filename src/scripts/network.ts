@@ -35,7 +35,7 @@ export function exec() {
       return list();
     default:
       throw new Error(
-        `${JSON.stringify(action)} action is not exists in provider script!`
+        `${JSON.stringify(action)} action is not exists in network script!`
       );
   }
 }

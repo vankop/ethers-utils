@@ -7,7 +7,7 @@ import { address, txhash } from '../console/etherscan';
 
 const [, , , action, arg0, ...options] = process.argv;
 
-async function view() {
+async function list() {
   if (!arg0) throw new Error('Span name as argument expected!');
 
   const { type = 'all' } = keyValueOptionsToObject(options);
@@ -53,8 +53,8 @@ async function view() {
 
 export function exec(): Promise<any> {
   switch (action) {
-    case 'view':
-      return view();
+    case 'list':
+      return list();
     default:
       throw new Error(
         `${JSON.stringify(action)} action is not exists in transactions script!`

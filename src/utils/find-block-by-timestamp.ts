@@ -24,6 +24,8 @@ async function _findBlockByTimestamp(
     getBlockTimeStamp(provider, blockStart),
     getBlockTimeStamp(provider, blockEnd)
   ]);
+  if (timestamp > block1.timestamp) return block1;
+  if (timestamp < block0.timestamp) return block0;
   const t0 = block0.timestamp;
   const t1 = block1.timestamp;
   const i0 = blockStart;

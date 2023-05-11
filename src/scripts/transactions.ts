@@ -1,4 +1,5 @@
 import { Table } from 'console-table-printer';
+import { formatInTimeZone } from 'date-fns-tz';
 import { keyValueOptionsToObject } from '../cli';
 import { transactions } from '../transactions';
 import { amount } from '../console/amount';
@@ -30,12 +31,13 @@ async function view() {
     tableView.addColumn('from');
   }
 
-  tableView.addColumn('amount').addColumn('txHash');
+  tableView.addColumn('amount').addColumn('time').addColumn('txHash');
 
-  for (const { from, to, amount: a, hash } of events) {
+  for (const { from, to, amount: a, hash, timestamp } of events) {
     const data: any = {
       amount: amount(a),
-      txHash: txhash(hash)
+      txHash: txhash(hash),
+      time: formatInTimeZone(timestamp, 'UTC', 'HH:mm:ss dd.MM')
     };
     if (type === 'buy' || type === 'all') {
       data.to = address(to);

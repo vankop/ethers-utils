@@ -1,8 +1,12 @@
 import { block } from '../console/etherscan';
 import { spinner } from '../utils';
-import { allTransactionsInRange } from './all-transactions-in-range';
+import {
+  allTransactionsInRange,
+  Transaction
+} from './all-transactions-in-range';
 import { createProvider } from '../network';
 import { getSpanDataForTransaction } from '../pairs';
+import { findTimestampOfTransactions } from './find-timestamp-of-transactions';
 
 const ABI = [
   'event Transfer(address indexed from, address indexed to, uint256 amount)'
@@ -11,7 +15,7 @@ const ABI = [
 export async function transactions(
   spanName: string,
   type: 'buy' | 'sell' | 'all'
-) {
+): Promise<(Transaction & { timestamp: number })[]> {
   const {
     pairName,
     pairAddress,
@@ -21,9 +25,8 @@ export async function transactions(
   const provider = createProvider();
   console.log(`Span from ${block(start)} to ${block(end)}`);
 
-  const endLoading = spinner(
-    () => `Loading ${pairName} ${type} transactions for span.`
-  );
+  let loader = `Loading ${pairName} ${type} transactions for span..`;
+  const endLoading = spinner(() => loader);
   try {
     const events = await allTransactionsInRange(
       start,
@@ -37,8 +40,17 @@ export async function transactions(
         ? { to: pairAddress }
         : undefined
     );
+    loader = `Loading timestamps..`;
+    const timestamps = await findTimestampOfTransactions(events, provider);
     endLoading();
-    return events;
+    const data = [];
+    for (let i = 0; i < events.length; i++) {
+      data.push({
+        ...events[i],
+        timestamp: timestamps[i]
+      });
+    }
+    return data;
   } catch (e) {
     endLoading();
     throw e;

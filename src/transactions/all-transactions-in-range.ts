@@ -1,11 +1,12 @@
 import type { WebSocketProvider } from 'ethers';
 import { Contract, formatEther } from 'ethers';
 
-interface Transaction {
+export interface Transaction {
   amount: string;
   from: string;
   to: string;
   hash: string;
+  blockNumber: number;
 }
 
 export async function allTransactionsInRange(
@@ -35,7 +36,8 @@ export async function allTransactionsInRange(
       from,
       to,
       amount: formatEther(amount),
-      hash: event.transactionHash
+      hash: event.transactionHash,
+      blockNumber: event.blockNumber
     });
   }
 

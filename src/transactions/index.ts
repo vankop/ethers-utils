@@ -106,9 +106,11 @@ export async function intersection(
           } else {
             entry.set(pairName, [event]);
           }
-          result.add(addr);
+          if (entry.size > 1) result.add(addr);
         } else {
-          data.set(addr, new Map([[pairName, [event]]]));
+          const e: Map<string, Transaction[]> = new Map();
+          e.set(pairName, [event]);
+          data.set(addr, e);
         }
       }
     } catch (e) {

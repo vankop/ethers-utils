@@ -1,5 +1,6 @@
 import type { WebSocketProvider } from 'ethers';
-import { Contract, formatEther } from 'ethers';
+import { Contract, formatEther, Log, EventLog } from 'ethers';
+import { isContract } from './is-contract';
 
 export interface Transaction {
   amount: string;
@@ -7,6 +8,29 @@ export interface Transaction {
   to: string;
   hash: string;
   blockNumber: number;
+}
+
+function eventsToTransactions(
+  events: Array<EventLog | Log>,
+  contract: Contract
+) {
+  const transactions: Transaction[] = [];
+  for (const event of events) {
+    const { from, to, amount } = contract.interface.decodeEventLog(
+      'Transfer',
+      event.data,
+      event.topics
+    );
+    transactions.push({
+      from,
+      to,
+      amount: formatEther(amount),
+      hash: event.transactionHash,
+      blockNumber: event.blockNumber
+    });
+  }
+
+  return transactions;
 }
 
 export async function allTransactionsInRange(
@@ -24,22 +48,40 @@ export async function allTransactionsInRange(
   const contract = new Contract(contractAddress, abi, { provider });
   const filter = contract.filters.Transfer(from, to);
   const events = await contract.queryFilter(filter, blockStart, blockEnd);
-  const transactions: Transaction[] = [];
 
-  for (const event of events) {
-    const { from, to, amount } = contract.interface.decodeEventLog(
-      'Transfer',
-      event.data,
-      event.topics
-    );
-    transactions.push({
-      from,
-      to,
-      amount: formatEther(amount),
-      hash: event.transactionHash,
-      blockNumber: event.blockNumber
+  const contracts = new Set<string>();
+  const promises = [];
+
+  if (from || to) {
+    for (const event of events) {
+      const { from: f, to: t } = contract.interface.decodeEventLog(
+        'Transfer',
+        event.data,
+        event.topics
+      );
+      promises.push(
+        (async () => {
+          const addr = from ? t : f;
+          if (await isContract(addr, provider)) {
+            contracts.add(addr);
+          }
+        })()
+      );
+    }
+
+    await Promise.all(promises);
+
+    const filtered = events.filter((e) => {
+      const { from: f, to: t } = contract.interface.decodeEventLog(
+        'Transfer',
+        e.data,
+        e.topics
+      );
+      const addr = from ? t : f;
+      return !contracts.has(addr);
     });
+    return eventsToTransactions(filtered, contract);
+  } else {
+    return eventsToTransactions(events, contract);
   }
-
-  return transactions;
 }

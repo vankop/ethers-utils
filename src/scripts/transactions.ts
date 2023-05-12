@@ -1,5 +1,4 @@
 import { Table } from 'console-table-printer';
-import { formatInTimeZone } from 'date-fns-tz';
 import { keyValueOptionsToObject } from '../cli';
 import {
   transactions,
@@ -8,10 +7,17 @@ import {
 } from '../transactions';
 import { amount } from '../console/amount';
 import { address, txhash } from '../console/etherscan';
+import { format } from 'date-fns';
 
 const [, , , action, arg0, ...options] = process.argv;
+const COLORS = [31, 33, 32, 36, 34, 35];
 
-function printTable(type: string, events: ImprovedTransactions[]) {
+function printTable(
+  type: string,
+  events: ImprovedTransactions[],
+  withColors = false,
+  withTimestamps = false
+) {
   const tableView = new Table({ charLength: { ['\x1B']: 3 } });
   if (type === 'buy' || type === 'all') {
     tableView.addColumn('to');
@@ -20,22 +26,44 @@ function printTable(type: string, events: ImprovedTransactions[]) {
     tableView.addColumn('from');
   }
 
-  tableView.addColumn('amount').addColumn('time').addColumn('txHash');
+  tableView.addColumn('amount').addColumn('txHash');
 
-  for (const { from, to, amount: a, hash, timestamp } of events) {
+  if (withTimestamps) {
+    tableView.addColumn('time');
+  }
+
+  const sortedEvents = withColors
+    ? events.sort(({ from: f0, to: t0 }, { from: f1, to: t1 }) => {
+        const a = type === 'buy' ? t0 : f0;
+        const b = type === 'buy' ? t1 : f1;
+        return a.localeCompare(b);
+      })
+    : events;
+
+  for (let i = 0; i < sortedEvents.length; i++) {
+    const { from, to, amount: a, hash, timestamp } = sortedEvents[i];
     const data: any = {
       amount: amount(a),
-      txHash: txhash(hash),
-      time: formatInTimeZone(timestamp, 'UTC', 'HH:mm:ss dd.MM')
+      txHash: txhash(hash)
     };
+    if (timestamp) {
+      data.time = format(timestamp, 'HH:mm:ss dd.MM');
+    }
     if (type === 'buy' || type === 'all') {
-      data.to = address(to);
+      const addr = address(to);
+      data.to = withColors
+        ? `\x1b[${COLORS[i % COLORS.length]}m${addr}\x1b[0m`
+        : addr;
     }
     if (type === 'sell' || type === 'all') {
-      data.from = address(from);
+      const addr = address(from);
+      data.from = withColors
+        ? `\x1b[${COLORS[i % COLORS.length]}m${addr}\x1b[0m`
+        : addr;
     }
     tableView.addRow(data);
   }
+
   tableView.printTable();
   console.log(`Count: ${events.length}`);
 }
@@ -54,7 +82,7 @@ async function list() {
         'Transaction type is wrong! Supported values are "buy","sell","all"'
       );
   }
-  const events = await transactions(arg0, type);
+  const events = await transactions(arg0, type, false);
   printTable(type, events);
 }
 
@@ -75,7 +103,7 @@ async function intersection() {
   if (!arg0 || opts.length < 1)
     throw new Error('Should have at least 2 spans!');
   const spans = [arg0, ...opts];
-  const map = await transactionsIntersection(spans, type);
+  const map = await transactionsIntersection(spans, type, false);
 
   if (!map) {
     console.log('\u001b[1mNo match was found!\u001b[0m');
@@ -84,7 +112,7 @@ async function intersection() {
 
   for (const [pair, trs] of map) {
     console.log(`\n\n\nPair: \u001b[1m${pair}\u001b[0m`);
-    printTable(type, trs);
+    printTable(type, trs, false);
   }
 }
 

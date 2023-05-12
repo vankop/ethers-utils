@@ -8,7 +8,7 @@ import { createProvider } from '../network';
 import { getSpanDataForTransaction } from '../pairs';
 import { findTimestampOfTransactions } from './find-timestamp-of-transactions';
 
-export type ImprovedTransactions = Transaction & { timestamp: number };
+export type ImprovedTransactions = Transaction & { timestamp?: number };
 
 const ABI = [
   'event Transfer(address indexed from, address indexed to, uint256 amount)'
@@ -16,7 +16,8 @@ const ABI = [
 
 export async function transactions(
   spanName: string,
-  type: 'buy' | 'sell' | 'all'
+  type: 'buy' | 'sell' | 'all',
+  timestamps: boolean
 ): Promise<ImprovedTransactions[]> {
   const {
     pairName,
@@ -42,17 +43,21 @@ export async function transactions(
         ? { to: pairAddress }
         : undefined
     );
-    loader = `Loading timestamps..`;
-    const timestamps = await findTimestampOfTransactions(events, provider);
-    endLoading();
-    const data = [];
-    for (let i = 0; i < events.length; i++) {
-      data.push({
-        ...events[i],
-        timestamp: timestamps[i]
-      });
+    if (timestamps) {
+      loader = `Loading timestamps..`;
+      const timestamps = await findTimestampOfTransactions(events, provider);
+      endLoading();
+      const data = [];
+      for (let i = 0; i < events.length; i++) {
+        data.push({
+          ...events[i],
+          timestamp: timestamps[i]
+        });
+      }
+      return data;
     }
-    return data;
+    endLoading();
+    return events;
   } catch (e) {
     endLoading();
     throw e;
@@ -61,7 +66,8 @@ export async function transactions(
 
 export async function intersection(
   spans: string[],
-  type: 'buy' | 'sell'
+  type: 'buy' | 'sell',
+  timestamps: boolean
 ): Promise<Map<string, ImprovedTransactions[]> | null> {
   const provider = createProvider();
   const data: Map<string, Map<string, Transaction[]>> = new Map();
@@ -120,24 +126,37 @@ export async function intersection(
   const r = new Map<string, ImprovedTransactions[]>();
   for (const addr of result) {
     const pairs = data.get(addr);
-    const entries = Array.from(pairs!.entries());
-    const timestamps = await Promise.all(
-      entries.map(([, trs]) => findTimestampOfTransactions(trs, provider))
-    );
 
-    for (let i = 0; i < entries.length; i++) {
-      const [pairName, trs] = entries[i];
-      const ts = timestamps[i];
-      let entry = r.get(pairName);
-      if (!entry) {
-        entry = [];
-        r.set(pairName, entry);
+    if (!timestamps) {
+      for (const [pair, trs] of pairs!) {
+        let entry = r.get(pair);
+        if (!entry) {
+          entry = trs.slice();
+        } else {
+          entry = [...entry, ...trs];
+        }
+        r.set(pair, entry);
       }
-      for (let j = 0; j < trs.length; j++) {
-        entry.push({
-          ...trs[j],
-          timestamp: ts[j]
-        });
+    } else {
+      const entries = Array.from(pairs!.entries());
+      let timestamps = await Promise.all(
+        entries.map(([, trs]) => findTimestampOfTransactions(trs, provider))
+      );
+
+      for (let i = 0; i < entries.length; i++) {
+        const [pairName, trs] = entries[i];
+        const ts = timestamps[i];
+        let entry = r.get(pairName);
+        if (!entry) {
+          entry = [];
+          r.set(pairName, entry);
+        }
+        for (let j = 0; j < trs.length; j++) {
+          entry.push({
+            ...trs[j],
+            timestamp: ts[j]
+          });
+        }
       }
     }
   }

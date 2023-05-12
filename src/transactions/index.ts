@@ -8,6 +8,8 @@ import { createProvider } from '../network';
 import { getSpanDataForTransaction } from '../pairs';
 import { findTimestampOfTransactions } from './find-timestamp-of-transactions';
 
+export type ImprovedTransactions = Transaction & { timestamp: number };
+
 const ABI = [
   'event Transfer(address indexed from, address indexed to, uint256 amount)'
 ];
@@ -15,7 +17,7 @@ const ABI = [
 export async function transactions(
   spanName: string,
   type: 'buy' | 'sell' | 'all'
-): Promise<(Transaction & { timestamp: number })[]> {
+): Promise<ImprovedTransactions[]> {
   const {
     pairName,
     pairAddress,
@@ -55,4 +57,91 @@ export async function transactions(
     endLoading();
     throw e;
   }
+}
+
+export async function intersection(
+  spans: string[],
+  type: 'buy' | 'sell'
+): Promise<Map<string, ImprovedTransactions[]> | null> {
+  const provider = createProvider();
+  const data: Map<string, Map<string, Transaction[]>> = new Map();
+  const result: Set<string> = new Set();
+  let loader = '';
+  const endLoading = spinner(() => loader);
+  for (const span of spans) {
+    const i = spans.indexOf(span);
+    const {
+      pairName,
+      pairAddress,
+      contractAddress,
+      blockSpan: [start, end]
+    } = getSpanDataForTransaction(span);
+    loader = `${i + 1}/${
+      spans.length
+    } Loading ${pairName} ${type} transactions for span. From block ${block(
+      start
+    )} to ${block(end)}`;
+    try {
+      const events = await allTransactionsInRange(
+        start,
+        end,
+        contractAddress,
+        ABI,
+        provider,
+        type === 'buy' ? { from: pairAddress } : { to: pairAddress }
+      );
+      for (const event of events) {
+        const addr = type == 'buy' ? event.to : event.from;
+        let entry = data.get(addr);
+        if (entry) {
+          const entry2 = entry.get(pairName);
+          if (entry2) {
+            entry2.push(event);
+          } else {
+            entry.set(pairName, [event]);
+          }
+          result.add(addr);
+        } else {
+          data.set(addr, new Map([[pairName, [event]]]));
+        }
+      }
+    } catch (e) {
+      endLoading();
+      throw e;
+    }
+  }
+
+  if (result.size === 0) {
+    endLoading();
+    return null;
+  }
+
+  loader = `${result.size} wallets found. Loading timestamps..`;
+  const r = new Map<string, ImprovedTransactions[]>();
+  for (const addr of result) {
+    const pairs = data.get(addr);
+    const entries = Array.from(pairs!.entries());
+    const timestamps = await Promise.all(
+      entries.map(([, trs]) => findTimestampOfTransactions(trs, provider))
+    );
+
+    for (let i = 0; i < entries.length; i++) {
+      const [pairName, trs] = entries[i];
+      const ts = timestamps[i];
+      let entry = r.get(pairName);
+      if (!entry) {
+        entry = [];
+        r.set(pairName, entry);
+      }
+      for (let j = 0; j < trs.length; j++) {
+        entry.push({
+          ...trs[j],
+          timestamp: ts[j]
+        });
+      }
+    }
+  }
+
+  endLoading();
+  return r;
 }

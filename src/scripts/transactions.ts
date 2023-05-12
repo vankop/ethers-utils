@@ -1,28 +1,17 @@
 import { Table } from 'console-table-printer';
 import { formatInTimeZone } from 'date-fns-tz';
 import { keyValueOptionsToObject } from '../cli';
-import { transactions } from '../transactions';
+import {
+  transactions,
+  intersection as transactionsIntersection,
+  ImprovedTransactions
+} from '../transactions';
 import { amount } from '../console/amount';
 import { address, txhash } from '../console/etherscan';
 
 const [, , , action, arg0, ...options] = process.argv;
 
-async function list() {
-  if (!arg0) throw new Error('Span name as argument expected!');
-
-  const { type = 'all' } = keyValueOptionsToObject(options);
-  switch (type) {
-    case 'all':
-    case 'sell':
-    case 'buy':
-      break;
-    default:
-      throw new Error(
-        'Transaction type is wrong! Supported values are "buy","sell","all"'
-      );
-  }
-  const events = await transactions(arg0, type);
-
+function printTable(type: string, events: ImprovedTransactions[]) {
   const tableView = new Table({ charLength: { ['\x1B']: 3 } });
   if (type === 'buy' || type === 'all') {
     tableView.addColumn('to');
@@ -51,10 +40,60 @@ async function list() {
   console.log(`Count: ${events.length}`);
 }
 
+async function list() {
+  if (!arg0) throw new Error('Span name as argument expected!');
+
+  const { type = 'all' } = keyValueOptionsToObject(options);
+  switch (type) {
+    case 'all':
+    case 'sell':
+    case 'buy':
+      break;
+    default:
+      throw new Error(
+        'Transaction type is wrong! Supported values are "buy","sell","all"'
+      );
+  }
+  const events = await transactions(arg0, type);
+  printTable(type, events);
+}
+
+async function intersection() {
+  let opts = options;
+  let type: 'buy' | 'sell';
+  if (opts[opts.length - 1].indexOf('=') > -1) {
+    let i = opts.length;
+    while (i > 0 && opts[--i].indexOf('=') > -1);
+    const { type: t } = keyValueOptionsToObject(opts.slice(i + 1));
+    if (t !== 'buy' && t !== 'sell')
+      throw new Error('Should provide type. Like "type=buy"');
+    type = t;
+    opts = options.slice(0, i + 1);
+  } else {
+    throw new Error('Should provide type. Like "type=buy"');
+  }
+  if (!arg0 || opts.length < 1)
+    throw new Error('Should have at least 2 spans!');
+  const spans = [arg0, ...opts];
+  const map = await transactionsIntersection(spans, type);
+
+  if (!map) {
+    console.log('\u001b[1mNo match was found!\u001b[0m');
+    return;
+  }
+
+  for (const [pair, trs] of map) {
+    console.log(`\n\n\nPair: \u001b[1m${pair}\u001b[0m`);
+    printTable(type, trs);
+  }
+}
+
 export function exec(): Promise<any> {
   switch (action) {
     case 'list':
       return list();
+    case 'intersection':
+      return intersection();
     default:
       throw new Error(
         `${JSON.stringify(action)} action is not exists in transactions script!`

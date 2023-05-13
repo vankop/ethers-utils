@@ -1,5 +1,6 @@
 import type { WebSocketProvider } from 'ethers';
-import { Contract, formatEther, Log, EventLog } from 'ethers';
+import { Contract, formatUnits, Log, EventLog } from 'ethers';
+import ABI from '../abi/erc20.json';
 
 export interface Transaction {
   amount: string;
@@ -11,19 +12,20 @@ export interface Transaction {
 
 function eventsToTransactions(
   events: Array<EventLog | Log>,
-  contract: Contract
+  contract: Contract,
+  decimals: number
 ) {
   const transactions: Transaction[] = [];
   for (const event of events) {
-    const { from, to, amount } = contract.interface.decodeEventLog(
-      'Transfer',
-      event.data,
-      event.topics
-    );
+    const {
+      from,
+      to,
+      value: amount
+    } = contract.interface.decodeEventLog('Transfer', event.data, event.topics);
     transactions.push({
       from,
       to,
-      amount: formatEther(amount),
+      amount: formatUnits(amount, decimals),
       hash: event.transactionHash,
       blockNumber: event.blockNumber
     });
@@ -36,7 +38,6 @@ export async function allTransactionsInRange(
   blockStart: number,
   blockEnd: number,
   contractAddress: string,
-  abi: string[],
   provider: WebSocketProvider,
   transferFilter?: { from: string } | { to: string }
 ) {
@@ -44,9 +45,15 @@ export async function allTransactionsInRange(
     transferFilter && 'from' in transferFilter ? transferFilter.from : null;
   const to =
     transferFilter && 'to' in transferFilter ? transferFilter.to : null;
-  const contract = new Contract(contractAddress, abi, { provider });
+  const contract = new Contract(contractAddress, ABI, { provider });
+  let decimals = 18;
+  try {
+    decimals = await contract.decimals();
+  } catch (e: any) {
+    console.log(e.toString());
+  }
   const filter = contract.filters.Transfer(from, to);
   const events = await contract.queryFilter(filter, blockStart, blockEnd);
 
-  return eventsToTransactions(events, contract);
+  return eventsToTransactions(events, contract, decimals);
 }

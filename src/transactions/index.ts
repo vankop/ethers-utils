@@ -11,10 +11,6 @@ import { isContract } from './is-contract';
 
 export type ImprovedTransactions = Transaction & { timestamp?: number };
 
-const ABI = [
-  'event Transfer(address indexed from, address indexed to, uint256 amount)'
-];
-
 export async function transactions(
   spanName: string,
   type: 'buy' | 'sell' | 'all',
@@ -36,7 +32,6 @@ export async function transactions(
       start,
       end,
       contractAddress,
-      ABI,
       provider,
       type === 'buy'
         ? { from: pairAddress }
@@ -93,7 +88,6 @@ export async function intersection(
         start,
         end,
         contractAddress,
-        ABI,
         provider,
         type === 'buy' ? { from: pairAddress } : { to: pairAddress }
       );

@@ -8,6 +8,8 @@ import {
 import { amount } from '../console/amount';
 import { address, txhash } from '../console/etherscan';
 import { format } from 'date-fns';
+import { bold } from '../console/font';
+import { columns } from '../console/format';
 
 const [, , , action, arg0, ...options] = process.argv;
 const COLORS = [31, 33, 32, 36, 34, 35];
@@ -19,15 +21,12 @@ function printTable(
   withTimestamps = false
 ) {
   const tableView = new Table({ charLength: { ['\x1B']: 3 } });
-  if (type === 'buy' || type === 'all') {
-    tableView.addColumn('to');
+  if (type !== 'all') {
+    tableView.addColumn('address');
+  } else {
+    tableView.addColumn('from').addColumn('to');
   }
-  if (type === 'sell' || type === 'all') {
-    tableView.addColumn('from');
-  }
-
   tableView.addColumn('amount').addColumn('txHash');
-
   if (withTimestamps) {
     tableView.addColumn('time');
   }
@@ -49,18 +48,20 @@ function printTable(
     if (timestamp) {
       data.time = format(timestamp, 'HH:mm:ss dd.MM');
     }
-    if (type === 'buy' || type === 'all') {
-      const addr = address(to);
-      data.to = withColors
-        ? `\x1b[${COLORS[i % COLORS.length]}m${addr}\x1b[0m`
-        : addr;
-    }
-    if (type === 'sell' || type === 'all') {
-      const addr = address(from);
+    if (type === 'all') {
       data.from = withColors
+        ? `\x1b[${COLORS[i % COLORS.length]}m${address(from)}\x1b[0m`
+        : from;
+      data.to = withColors
+        ? `\x1b[${COLORS[i % COLORS.length]}m${address(to)}\x1b[0m`
+        : to;
+    } else {
+      const addr = address(type === 'buy' ? to : from);
+      data.address = withColors
         ? `\x1b[${COLORS[i % COLORS.length]}m${addr}\x1b[0m`
         : addr;
     }
+
     tableView.addRow(data);
   }
 
@@ -103,15 +104,22 @@ async function intersection() {
   if (!arg0 || opts.length < 1)
     throw new Error('Should have at least 2 spans!');
   const spans = [arg0, ...opts];
-  const map = await transactionsIntersection(spans, type, false);
+  const result = await transactionsIntersection(spans, type, false);
 
-  if (!map) {
-    console.log('\u001b[1mNo match was found!\u001b[0m');
+  if (!result) {
+    console.log(bold('No match was found!'));
     return;
   }
 
+  const [addresses, map] = result;
+
+  console.log(`${bold(`${addresses.size} Wallets`)}:`);
+  columns(
+    Array.from(addresses).map((addr) => address(addr, true)),
+    3
+  );
   for (const [pair, trs] of map) {
-    console.log(`\n\n\nPair: \u001b[1m${pair}\u001b[0m`);
+    console.log(`\n\nPair: ${bold(pair)}`);
     printTable(type, trs, false);
   }
 }

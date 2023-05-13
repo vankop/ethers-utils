@@ -7,6 +7,7 @@ import {
 import { createProvider } from '../network';
 import { getSpanDataForTransaction } from '../pairs';
 import { findTimestampOfTransactions } from './find-timestamp-of-transactions';
+import { isContract } from './is-contract';
 
 export type ImprovedTransactions = Transaction & { timestamp?: number };
 
@@ -68,10 +69,10 @@ export async function intersection(
   spans: string[],
   type: 'buy' | 'sell',
   timestamps: boolean
-): Promise<Map<string, ImprovedTransactions[]> | null> {
+): Promise<[Set<string>, Map<string, ImprovedTransactions[]>] | null> {
   const provider = createProvider();
   const data: Map<string, Map<string, Transaction[]>> = new Map();
-  const result: Set<string> = new Set();
+  const addressSet: Set<string> = new Set();
   let loader = '';
   const endLoading = spinner(() => loader);
   for (const span of spans) {
@@ -106,7 +107,7 @@ export async function intersection(
           } else {
             entry.set(pairName, [event]);
           }
-          if (entry.size > 1) result.add(addr);
+          if (entry.size > 1) addressSet.add(addr);
         } else {
           const e: Map<string, Transaction[]> = new Map();
           e.set(pairName, [event]);
@@ -119,14 +120,29 @@ export async function intersection(
     }
   }
 
-  if (result.size === 0) {
+  loader = `${addressSet.size} addresses found. Checking bots/contracts..`;
+
+  const promises = [];
+  for (const addr of addressSet) {
+    promises.push(
+      (async () => {
+        if (await isContract(addr, provider)) {
+          addressSet.delete(addr);
+        }
+      })()
+    );
+  }
+
+  await Promise.all(promises);
+
+  if (addressSet.size === 0) {
     endLoading();
     return null;
   }
 
-  loader = `${result.size} wallets found. Loading timestamps..`;
+  loader = `${addressSet.size} wallets found. Loading timestamps..`;
   const r = new Map<string, ImprovedTransactions[]>();
-  for (const addr of result) {
+  for (const addr of addressSet) {
     const pairs = data.get(addr);
 
     if (!timestamps) {
@@ -164,5 +180,6 @@ export async function intersection(
   }
 
   endLoading();
-  return r;
+  console.log('');
+  return [addressSet, r];
 }

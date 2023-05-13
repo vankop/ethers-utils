@@ -1,6 +1,5 @@
 import type { WebSocketProvider } from 'ethers';
 import { Contract, formatEther, Log, EventLog } from 'ethers';
-import { isContract } from './is-contract';
 
 export interface Transaction {
   amount: string;
@@ -49,39 +48,5 @@ export async function allTransactionsInRange(
   const filter = contract.filters.Transfer(from, to);
   const events = await contract.queryFilter(filter, blockStart, blockEnd);
 
-  const contracts = new Set<string>();
-  const promises = [];
-
-  if (from || to) {
-    for (const event of events) {
-      const { from: f, to: t } = contract.interface.decodeEventLog(
-        'Transfer',
-        event.data,
-        event.topics
-      );
-      promises.push(
-        (async () => {
-          const addr = from ? t : f;
-          if (await isContract(addr, provider)) {
-            contracts.add(addr);
-          }
-        })()
-      );
-    }
-
-    await Promise.all(promises);
-
-    const filtered = events.filter((e) => {
-      const { from: f, to: t } = contract.interface.decodeEventLog(
-        'Transfer',
-        e.data,
-        e.topics
-      );
-      const addr = from ? t : f;
-      return !contracts.has(addr);
-    });
-    return eventsToTransactions(filtered, contract);
-  } else {
-    return eventsToTransactions(events, contract);
-  }
+  return eventsToTransactions(events, contract);
 }

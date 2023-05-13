@@ -1,3 +1,5 @@
+import { hyperLink } from './utils';
+
 function prettyAddress(addr: string) {
   return `${addr.slice(0, 5)}...${addr.slice(-3)}`;
 }
@@ -19,8 +21,4 @@ export function address(addr: string, full = false) {
     `https://etherscan.io/address/${addr}`,
     full ? addr : prettyAddress(addr)
   );
-}
-
-export function hyperLink(url: string, title: string) {
-  return `\x1B]8;;${url}\x1B\\${title}\x1B]8;;\x1B\\`;
 }

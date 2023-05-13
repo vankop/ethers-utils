@@ -6,7 +6,8 @@ import {
   ImprovedTransactions
 } from '../transactions';
 import { amount } from '../console/amount';
-import { address, txhash } from '../console/etherscan';
+import { txhash, address as etherscanAddress } from '../console/etherscan';
+import { address } from '../console/zerion';
 import { format } from 'date-fns';
 import { bold } from '../console/font';
 import { columns } from '../console/format';
@@ -50,13 +51,13 @@ function printTable(
     }
     if (type === 'all') {
       data.from = withColors
-        ? `\x1b[${COLORS[i % COLORS.length]}m${address(from)}\x1b[0m`
+        ? `\x1b[${COLORS[i % COLORS.length]}m${etherscanAddress(from)}\x1b[0m`
         : from;
       data.to = withColors
-        ? `\x1b[${COLORS[i % COLORS.length]}m${address(to)}\x1b[0m`
+        ? `\x1b[${COLORS[i % COLORS.length]}m${etherscanAddress(to)}\x1b[0m`
         : to;
     } else {
-      const addr = address(type === 'buy' ? to : from);
+      const addr = etherscanAddress(type === 'buy' ? to : from);
       data.address = withColors
         ? `\x1b[${COLORS[i % COLORS.length]}m${addr}\x1b[0m`
         : addr;
@@ -115,7 +116,7 @@ async function intersection() {
 
   console.log(`${bold(`${addresses.size} Wallets`)}:`);
   columns(
-    Array.from(addresses).map((addr) => address(addr, true)),
+    Array.from(addresses).map((addr) => address(addr)),
     3
   );
   for (const [pair, trs] of map) {

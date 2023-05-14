@@ -83,7 +83,6 @@ export async function intersection(
       } else {
         entry.set(pairName, [event]);
       }
-      if (entry.size > 1) addressSet.add(addr);
     } else {
       const e: Map<string, Transaction[]> = new Map();
       e.set(pairName, [event]);
@@ -114,7 +113,10 @@ export async function intersection(
         type === 'buy' ? { from: pairAddress } : { to: pairAddress }
       );
       for (const event of events) {
-        addEventInData(pairName, type == 'buy' ? event.to : event.from, event);
+        const addr = type == 'buy' ? event.to : event.from;
+        addEventInData(pairName, addr, event);
+        const entry = data.get(addr);
+        if (entry && entry.size > 1) addressSet.add(addr);
       }
     } catch (e) {
       endLoading();
@@ -137,7 +139,7 @@ export async function intersection(
     }`;
 
     try {
-      const newAddressSet = new Set(addressSet);
+      const newAddressSet = new Set<string>();
       const events = await allTransactionsInRange(
         start,
         end,

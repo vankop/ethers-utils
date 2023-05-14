@@ -73,15 +73,14 @@ function printTable(
 async function list() {
   if (!arg0) throw new Error('Span name as argument expected!');
 
-  const { type = 'all' } = keyValueOptionsToObject(options);
+  const { type } = keyValueOptionsToObject(options);
   switch (type) {
-    case 'all':
     case 'sell':
     case 'buy':
       break;
     default:
       throw new Error(
-        'Transaction type is wrong! Supported values are "buy","sell","all"'
+        'Transaction type is wrong! Supported values are "buy","sell"'
       );
   }
   const events = await transactions(arg0, type, false);

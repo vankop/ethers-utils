@@ -13,7 +13,7 @@ export type ImprovedTransactions = Transaction & { timestamp?: number };
 
 export async function transactions(
   spanName: string,
-  type: 'buy' | 'sell' | 'all',
+  type: 'buy' | 'sell',
   timestamps: boolean
 ): Promise<ImprovedTransactions[]> {
   const {
@@ -33,11 +33,7 @@ export async function transactions(
       end,
       contractAddress,
       provider,
-      type === 'buy'
-        ? { from: pairAddress }
-        : type === 'sell'
-        ? { to: pairAddress }
-        : undefined
+      type === 'buy' ? { from: pairAddress } : { to: pairAddress }
     );
     if (timestamps) {
       loader = `Loading timestamps..`;
@@ -52,8 +48,29 @@ export async function transactions(
       }
       return data;
     }
+
+    loader = `${events.length} addresses found. Checking bots/contracts..`;
+
+    const contracts = new Set<string>();
+    const promises = [];
+    for (const { from, to } of events) {
+      const addr = type === 'buy' ? to : from;
+      promises.push(
+        (async () => {
+          if (await isContract(addr, provider)) {
+            contracts.add(addr);
+          }
+        })()
+      );
+    }
+
+    await Promise.all(promises);
+
     endLoading();
-    return events;
+    return events.filter(({ from, to }) => {
+      const addr = type === 'buy' ? to : from;
+      return !contracts.has(addr);
+    });
   } catch (e) {
     endLoading();
     throw e;

@@ -11,6 +11,7 @@ import { address } from '../console/zerion';
 import { format } from 'date-fns';
 import { bold } from '../console/font';
 import { columns } from '../console/format';
+import { getSpanDataForTransaction } from '../pairs';
 const COLORS = [31, 33, 32, 36, 34, 35];
 
 function assetType(str: any): str is 'buy' | 'sell' {
@@ -89,7 +90,7 @@ async function list() {
 async function intersection() {
   const [, , , , ...options] = process.argv;
   if (options.length < 2) throw new Error('Should have at least 2 spans!');
-  const spans = new Map<string, 'buy' | 'sell'>();
+  const spans = new Array<[string, 'buy' | 'sell']>();
   let timestamp = false;
   const {
     type,
@@ -97,7 +98,8 @@ async function intersection() {
     ...rest
   } = keyValueOptionsToObject(options);
   const keys = Object.keys(rest);
-  if (keys.length < 2) throw new Error('Should have at least 2 spans!');
+  if (keys.length < 2 && !Array.isArray(rest[keys[0]]))
+    throw new Error('Should have at least 2 spans!');
   if (!type) {
     if (Object.values(rest).some((r) => r === true))
       throw new Error('Should provide type. Like "type=buy"');
@@ -110,12 +112,23 @@ async function intersection() {
   timestamp = !!ts;
   for (const key of keys) {
     const value = rest[key] === true ? type : rest[key];
-    if (!assetType(value)) {
-      throw new Error(
-        'Transaction type is wrong! Supported values are "buy","sell"'
-      );
+    if (Array.isArray(value)) {
+      const [t0, t1] = value;
+      if (!assetType(t0) || !assetType(t1)) {
+        throw new Error(
+          'Transaction type is wrong! Supported values are "buy","sell"'
+        );
+      }
+      spans.push([key, t0]);
+      spans.push([key, t1]);
+    } else {
+      if (!assetType(value)) {
+        throw new Error(
+          'Transaction type is wrong! Supported values are "buy","sell"'
+        );
+      }
+      spans.push([key, value]);
     }
-    spans.set(key, value);
   }
   const result = await transactionsIntersection(spans, timestamp);
 
@@ -131,9 +144,14 @@ async function intersection() {
     Array.from(addresses).map((addr) => address(addr)),
     3
   );
-  for (const [pair, trs] of map) {
-    console.log(`\n\nPair: ${bold(pair)}`);
-    printTable(spans.get(pair)!, trs, false);
+  for (const [spanName, transactionsByType] of map) {
+    const { pairName } = getSpanDataForTransaction(spanName);
+    for (const [type, trs] of transactionsByType) {
+      console.log(
+        `\n\nPair: ${bold(pairName)}. ${type === 'buy' ? 'Buyers' : 'Sellers'}`
+      );
+      printTable(type, trs, false);
+    }
   }
 }
 

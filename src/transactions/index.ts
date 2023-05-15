@@ -80,35 +80,36 @@ export async function transactions(
 }
 
 export async function intersection(
-  spansMap: Map<string, 'buy' | 'sell'>,
+  spans: [string, 'buy' | 'sell'][],
   timestamps: boolean
-): Promise<[Set<string>, Map<string, ImprovedTransactions[]>] | null> {
+): Promise<
+  [Set<string>, Map<string, Map<'buy' | 'sell', ImprovedTransactions[]>>] | null
+> {
   const provider = createProvider();
   const data: Map<string, Map<string, Transaction[]>> = new Map();
   let addressSet: Set<string> = new Set();
   let loader = '';
 
   const addEventInData = (
-    pairName: string,
+    spanName: string,
     addr: string,
     event: Transaction
   ) => {
     let entry = data.get(addr);
     if (entry) {
-      const entry2 = entry.get(pairName);
+      const entry2 = entry.get(spanName);
       if (entry2) {
         entry2.push(event);
       } else {
-        entry.set(pairName, [event]);
+        entry.set(spanName, [event]);
       }
     } else {
       const e: Map<string, Transaction[]> = new Map();
-      e.set(pairName, [event]);
+      e.set(spanName, [event]);
       data.set(addr, e);
     }
   };
 
-  const spans = Array.from(spansMap.entries());
   const endLoading = spinner(() => loader);
   for (const span of spans.slice(0, 2)) {
     const i = spans.indexOf(span);
@@ -134,7 +135,7 @@ export async function intersection(
       );
       for (const event of events) {
         const addr = type == 'buy' ? event.to : event.from;
-        addEventInData(pairName, addr, event);
+        addEventInData(`${spanName}|${type}`, addr, event);
         const entry = data.get(addr);
         if (entry && entry.size > 1) addressSet.add(addr);
       }
@@ -172,13 +173,18 @@ export async function intersection(
         const addr = type == 'buy' ? event.to : event.from;
         if (!addressSet.has(addr)) continue;
         newAddressSet.add(addr);
-        addEventInData(pairName, addr, event);
+        addEventInData(`${spanName}|${type}`, addr, event);
       }
       addressSet = newAddressSet;
     } catch (e) {
       endLoading();
       throw e;
     }
+  }
+
+  if (addressSet.size === 0) {
+    endLoading();
+    return null;
   }
 
   loader = `${addressSet.size} addresses found. Checking bots/contracts..`;
@@ -202,36 +208,53 @@ export async function intersection(
   }
 
   loader = `${addressSet.size} wallets found. Loading timestamps..`;
-  const r = new Map<string, ImprovedTransactions[]>();
+  const r = new Map<string, Map<'buy' | 'sell', ImprovedTransactions[]>>();
   for (const addr of addressSet) {
-    const pairs = data.get(addr);
+    const spans = data.get(addr);
 
     if (!timestamps) {
-      for (const [pair, trs] of pairs!) {
-        let entry = r.get(pair);
+      for (const [span, trs] of spans!) {
+        const [spanName, type] = span.split('|') as [string, 'buy' | 'sell'];
+        let entry = r.get(spanName);
         if (!entry) {
-          entry = trs.slice();
+          entry = new Map<'buy' | 'sell', ImprovedTransactions[]>();
+          entry.set(type, trs.slice());
+          r.set(spanName, entry);
         } else {
-          entry = [...entry, ...trs];
+          const entry2 = entry.get(type);
+          if (entry2) {
+            entry.set(type, [...entry2, ...trs]);
+          } else {
+            entry.set(type, trs.slice());
+          }
         }
-        r.set(pair, entry);
       }
     } else {
-      const entries = Array.from(pairs!.entries());
+      const entries = Array.from(spans!.entries());
       let timestamps = await Promise.all(
         entries.map(([, trs]) => findTimestampOfTransactions(trs, provider))
       );
 
       for (let i = 0; i < entries.length; i++) {
-        const [pairName, trs] = entries[i];
+        const [span, trs] = entries[i];
         const ts = timestamps[i];
-        let entry = r.get(pairName);
+        const [spanName, type] = span.split('|') as [string, 'buy' | 'sell'];
+        let arr: any[];
+        let entry = r.get(spanName);
         if (!entry) {
-          entry = [];
-          r.set(pairName, entry);
+          entry = new Map<'buy' | 'sell', ImprovedTransactions[]>();
+          entry.set(type, (arr = []));
+          r.set(spanName, entry);
+        } else {
+          const entry2 = entry.get(type);
+          if (entry2) {
+            arr = entry2;
+          } else {
+            entry.set(type, (arr = []));
+          }
         }
         for (let j = 0; j < trs.length; j++) {
-          entry.push({
+          arr.push({
             ...trs[j],
             timestamp: ts[j]
           });

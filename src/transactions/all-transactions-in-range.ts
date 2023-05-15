@@ -1,6 +1,7 @@
 import type { WebSocketProvider } from 'ethers';
-import { Contract, formatUnits, Log, EventLog } from 'ethers';
+import { Contract, EventLog, formatUnits, Log } from 'ethers';
 import ABI from '../abi/erc20.json';
+import { isBuyLike, isSellLike, isStrict, TransactionType } from './type';
 
 export interface Transaction {
   amount: string;
@@ -38,13 +39,12 @@ export async function allTransactionsInRange(
   blockStart: number,
   blockEnd: number,
   contractAddress: string,
+  pairAddress: string,
   provider: WebSocketProvider,
-  transferFilter?: { from: string } | { to: string }
+  type: TransactionType
 ) {
-  const from =
-    transferFilter && 'from' in transferFilter ? transferFilter.from : null;
-  const to =
-    transferFilter && 'to' in transferFilter ? transferFilter.to : null;
+  const from = isBuyLike(type) ? pairAddress : null;
+  const to = isSellLike(type) ? pairAddress : null;
   const contract = new Contract(contractAddress, ABI, { provider });
   let decimals = 18;
   try {
@@ -53,7 +53,38 @@ export async function allTransactionsInRange(
     console.log(e.toString());
   }
   const filter = contract.filters.Transfer(from, to);
-  const events = await contract.queryFilter(filter, blockStart, blockEnd);
+  let events = await contract.queryFilter(filter, blockStart, blockEnd);
+
+  if (isStrict(type)) {
+    const from = isBuyLike(type) ? null : pairAddress;
+    const to = isSellLike(type) ? null : pairAddress;
+    const filter = contract.filters.Transfer(from, to);
+    let viceVersaEvents = await contract.queryFilter(
+      filter,
+      blockStart,
+      blockEnd
+    );
+    const addresses = new Set<string>();
+    for (const event of viceVersaEvents) {
+      const { from, to } = contract.interface.decodeEventLog(
+        'Transfer',
+        event.data,
+        event.topics
+      );
+      const addr = isBuyLike(type) ? from : to;
+      addresses.add(addr);
+    }
+
+    events = events.filter((event) => {
+      const { from, to } = contract.interface.decodeEventLog(
+        'Transfer',
+        event.data,
+        event.topics
+      );
+      const addr = isBuyLike(type) ? to : from;
+      return !addresses.has(addr);
+    });
+  }
 
   return eventsToTransactions(events, contract, decimals);
 }

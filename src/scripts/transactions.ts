@@ -12,33 +12,25 @@ import { format } from 'date-fns';
 import { bold } from '../console/font';
 import { columns } from '../console/format';
 import { getSpanDataForTransaction } from '../pairs';
+import { assetType, isBuyLike, TransactionType } from '../transactions/type';
 const COLORS = [31, 33, 32, 36, 34, 35];
 
-function assetType(str: any): str is 'buy' | 'sell' {
-  return str === 'buy' || 'sell' === str;
-}
-
 function printTable(
-  type: string,
+  type: TransactionType,
   events: ImprovedTransactions[],
   withColors = false,
   withTimestamps = false
 ) {
   const tableView = new Table({ charLength: { ['\x1B']: 3 } });
-  if (type !== 'all') {
-    tableView.addColumn('address');
-  } else {
-    tableView.addColumn('from').addColumn('to');
-  }
-  tableView.addColumn('amount').addColumn('txHash');
+  tableView.addColumn('address').addColumn('amount').addColumn('txHash');
   if (withTimestamps) {
     tableView.addColumn('time');
   }
 
   const sortedEvents = withColors
     ? events.sort(({ from: f0, to: t0 }, { from: f1, to: t1 }) => {
-        const a = type === 'buy' ? t0 : f0;
-        const b = type === 'buy' ? t1 : f1;
+        const a = isBuyLike(type) ? t0 : f0;
+        const b = isBuyLike(type) ? t1 : f1;
         return a.localeCompare(b);
       })
     : events;
@@ -52,19 +44,10 @@ function printTable(
     if (timestamp) {
       data.time = format(timestamp, 'HH:mm:ss dd.MM');
     }
-    if (type === 'all') {
-      data.from = withColors
-        ? `\x1b[${COLORS[i % COLORS.length]}m${etherscanAddress(from)}\x1b[0m`
-        : from;
-      data.to = withColors
-        ? `\x1b[${COLORS[i % COLORS.length]}m${etherscanAddress(to)}\x1b[0m`
-        : to;
-    } else {
-      const addr = etherscanAddress(type === 'buy' ? to : from);
-      data.address = withColors
-        ? `\x1b[${COLORS[i % COLORS.length]}m${addr}\x1b[0m`
-        : addr;
-    }
+    const addr = etherscanAddress(isBuyLike(type) ? to : from);
+    data.address = withColors
+      ? `\x1b[${COLORS[i % COLORS.length]}m${addr}\x1b[0m`
+      : addr;
 
     tableView.addRow(data);
   }
@@ -90,7 +73,7 @@ async function list() {
 async function intersection() {
   const [, , , , ...options] = process.argv;
   if (options.length < 2) throw new Error('Should have at least 2 spans!');
-  const spans = new Array<[string, 'buy' | 'sell']>();
+  const spans = new Array<[string, TransactionType]>();
   let timestamp = false;
   const {
     type,
@@ -148,7 +131,7 @@ async function intersection() {
     const { pairName } = getSpanDataForTransaction(spanName);
     for (const [type, trs] of transactionsByType) {
       console.log(
-        `\n\nPair: ${bold(pairName)}. ${type === 'buy' ? 'Buyers' : 'Sellers'}`
+        `\n\nPair: ${bold(pairName)}. ${isBuyLike(type) ? 'Buyers' : 'Sellers'}`
       );
       printTable(type, trs, false);
     }

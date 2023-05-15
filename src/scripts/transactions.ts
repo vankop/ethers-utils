@@ -11,9 +11,11 @@ import { address } from '../console/zerion';
 import { format } from 'date-fns';
 import { bold } from '../console/font';
 import { columns } from '../console/format';
-
-const [, , , action, arg0, ...options] = process.argv;
 const COLORS = [31, 33, 32, 36, 34, 35];
+
+function assetType(str: any): str is 'buy' | 'sell' {
+  return str === 'buy' || 'sell' === str;
+}
 
 function printTable(
   type: string,
@@ -71,40 +73,51 @@ function printTable(
 }
 
 async function list() {
+  const [, , , , arg0, ...options] = process.argv;
   if (!arg0) throw new Error('Span name as argument expected!');
 
-  const { type } = keyValueOptionsToObject(options);
-  switch (type) {
-    case 'sell':
-    case 'buy':
-      break;
-    default:
-      throw new Error(
-        'Transaction type is wrong! Supported values are "buy","sell"'
-      );
+  const { type, timestamp = false } = keyValueOptionsToObject(options);
+  if (!assetType(type)) {
+    throw new Error(
+      'Transaction type is wrong! Supported values are "type=buy","type=sell"'
+    );
   }
-  const events = await transactions(arg0, type, false);
+  const events = await transactions(arg0, type, !!timestamp);
   printTable(type, events);
 }
 
 async function intersection() {
-  let opts = options;
-  let type: 'buy' | 'sell';
-  if (opts[opts.length - 1].indexOf('=') > -1) {
-    let i = opts.length;
-    while (i > 0 && opts[--i].indexOf('=') > -1);
-    const { type: t } = keyValueOptionsToObject(opts.slice(i + 1));
-    if (t !== 'buy' && t !== 'sell')
+  const [, , , , ...options] = process.argv;
+  if (options.length < 2) throw new Error('Should have at least 2 spans!');
+  const spans = new Map<string, 'buy' | 'sell'>();
+  let timestamp = false;
+  const {
+    type,
+    timestamp: ts = false,
+    ...rest
+  } = keyValueOptionsToObject(options);
+  const keys = Object.keys(rest);
+  if (keys.length < 2) throw new Error('Should have at least 2 spans!');
+  if (!type) {
+    if (Object.values(rest).some((r) => r === true))
       throw new Error('Should provide type. Like "type=buy"');
-    type = t;
-    opts = options.slice(0, i + 1);
-  } else {
-    throw new Error('Should provide type. Like "type=buy"');
+  } else if (!assetType(type)) {
+    throw new Error(
+      'Transaction type is wrong! Supported values are "type=buy","type=sell"'
+    );
   }
-  if (!arg0 || opts.length < 1)
-    throw new Error('Should have at least 2 spans!');
-  const spans = [arg0, ...opts];
-  const result = await transactionsIntersection(spans, type, false);
+
+  timestamp = !!ts;
+  for (const key of keys) {
+    const value = rest[key] === true ? type : rest[key];
+    if (!assetType(value)) {
+      throw new Error(
+        'Transaction type is wrong! Supported values are "buy","sell"'
+      );
+    }
+    spans.set(key, value);
+  }
+  const result = await transactionsIntersection(spans, timestamp);
 
   if (!result) {
     console.log(bold('No match was found!'));
@@ -120,11 +133,12 @@ async function intersection() {
   );
   for (const [pair, trs] of map) {
     console.log(`\n\nPair: ${bold(pair)}`);
-    printTable(type, trs, false);
+    printTable(spans.get(pair)!, trs, false);
   }
 }
 
 export function exec(): Promise<any> {
+  const [, , , action] = process.argv;
   switch (action) {
     case 'list':
       return list();

@@ -11,8 +11,12 @@ const [, , , action, name, ...options] = process.argv;
 
 function add() {
   if (!name) throw new Error('Pair name should be provided');
-  const keys = keyValueOptionsToObject(options);
-  addPair(name, keys);
+  const { pair, token } = keyValueOptionsToObject(options);
+  if (!pair || typeof pair !== 'string')
+    throw new Error('Pair address is expected!');
+  if (!token || typeof token !== 'string')
+    throw new Error('Token contract address is expected!');
+  addPair(name, pair, token);
   console.log('Added ⇩ ⇩ ⇩');
   console.log(`\x1b[32m${name}\x1b[0m`);
   return Promise.resolve();
@@ -39,11 +43,11 @@ async function timespan() {
   if (!name)
     throw new Error('You should provide span name!. Like "pump_butter"');
   const { pair, start, end } = keyValueOptionsToObject(options);
-  if (!pair)
+  if (!pair || typeof pair !== 'string')
     throw new Error(
       'You should provide pair name, that you have added! Like "pair=BUTTER/WETH"'
     );
-  if (!start || !end)
+  if (!start || !end || typeof start !== 'string' || typeof end !== 'string')
     throw new Error(
       'You should provide start/end timestamps! Like "start=1683504052 end=1683590452"'
     );

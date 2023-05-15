@@ -21,11 +21,8 @@ function getTimeSpans(
   return config['spans'] || (config['spans'] = {});
 }
 
-export function addPair(name: string, options: Record<string, string>) {
+export function addPair(name: string, pair: string, token: string) {
   withConfig(PAIRS_FILENAME, (config) => {
-    const { pair, token } = options;
-    if (!pair) throw new Error('Pair address is expected!');
-    if (!token) throw new Error('Token contract address is expected!');
     const pairs = getPairs(config);
     pairs[name] = { pair: resolveAddress(pair), token: resolveAddress(token) };
   });

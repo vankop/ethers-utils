@@ -16,7 +16,7 @@ function use() {
 
 function add() {
   const config = keyValueOptionsToObject(configOptions);
-  addNetwork(name, config);
+  addNetwork(name, config as Record<string, string>);
   console.log('Added ⇩ ⇩ ⇩');
   console.log(renderUsedNetworkInfo());
 }

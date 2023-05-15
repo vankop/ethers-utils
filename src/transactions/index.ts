@@ -28,26 +28,13 @@ export async function transactions(
   let loader = `Loading ${pairName} ${type} transactions..`;
   const endLoading = spinner(() => loader);
   try {
-    const events = await allTransactionsInRange(
+    let events = await allTransactionsInRange(
       start,
       end,
       contractAddress,
       provider,
       type === 'buy' ? { from: pairAddress } : { to: pairAddress }
     );
-    if (timestamps) {
-      loader = `Loading timestamps..`;
-      const timestamps = await findTimestampOfTransactions(events, provider);
-      endLoading();
-      const data = [];
-      for (let i = 0; i < events.length; i++) {
-        data.push({
-          ...events[i],
-          timestamp: timestamps[i]
-        });
-      }
-      return data;
-    }
 
     loader = `${events.length} addresses found. Checking bots/contracts..`;
 
@@ -65,12 +52,27 @@ export async function transactions(
     }
 
     await Promise.all(promises);
-
-    endLoading();
-    return events.filter(({ from, to }) => {
+    events = events.filter(({ from, to }) => {
       const addr = type === 'buy' ? to : from;
       return !contracts.has(addr);
     });
+
+    if (timestamps) {
+      loader = `Loading timestamps..`;
+      const timestamps = await findTimestampOfTransactions(events, provider);
+      endLoading();
+      const data = [];
+      for (let i = 0; i < events.length; i++) {
+        data.push({
+          ...events[i],
+          timestamp: timestamps[i]
+        });
+      }
+      return data;
+    }
+
+    endLoading();
+    return events;
   } catch (e) {
     endLoading();
     throw e;
@@ -78,8 +80,7 @@ export async function transactions(
 }
 
 export async function intersection(
-  spans: string[],
-  type: 'buy' | 'sell',
+  spansMap: Map<string, 'buy' | 'sell'>,
   timestamps: boolean
 ): Promise<[Set<string>, Map<string, ImprovedTransactions[]>] | null> {
   const provider = createProvider();
@@ -107,15 +108,17 @@ export async function intersection(
     }
   };
 
+  const spans = Array.from(spansMap.entries());
   const endLoading = spinner(() => loader);
   for (const span of spans.slice(0, 2)) {
     const i = spans.indexOf(span);
+    const [spanName, type] = span;
     const {
       pairName,
       pairAddress,
       contractAddress,
       blockSpan: [start, end]
-    } = getSpanDataForTransaction(span);
+    } = getSpanDataForTransaction(spanName);
     loader = `${i + 1}/${
       spans.length
     } Loading ${pairName} ${type} transactions. From block ${block(
@@ -143,12 +146,13 @@ export async function intersection(
 
   for (const span of spans.slice(2)) {
     const i = spans.indexOf(span);
+    const [spanName, type] = span;
     const {
       pairName,
       pairAddress,
       contractAddress,
       blockSpan: [start, end]
-    } = getSpanDataForTransaction(span);
+    } = getSpanDataForTransaction(spanName);
     loader = `${i + 1}/${
       spans.length
     } Loading ${pairName} ${type} transactions. Max possible wallets ${

@@ -13,12 +13,20 @@ export function txhash(hash: string, full = false) {
 
 export function block(num: number) {
   const n = num.toString();
-  return hyperLink(`https://etherscan.io/block/${num}`, `#${n}`);
+  return hyperLink(etherscanBlockLink(num), `#${n}`);
 }
 
 export function address(addr: string, full = false) {
   return hyperLink(
-    `https://etherscan.io/address/${addr}`,
+    etherscanAddressLink(addr),
     full ? addr : prettyAddress(addr)
   );
+}
+
+export function etherscanAddressLink(addr: string) {
+  return `https://etherscan.io/address/${addr}`;
+}
+
+export function etherscanBlockLink(blockNumber: number) {
+  return `https://etherscan.io/block/${blockNumber}`;
 }

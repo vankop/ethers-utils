@@ -2,6 +2,10 @@ import {
   createProvider as createInfuraProvider,
   renderProviderInfo as renderInfuraProviderInfo
 } from './infura';
+import {
+  createProvider as createJsonRPCProvider,
+  renderProviderInfo as renderJsonRPCProviderInfo
+} from './json-rpc';
 import { withConfig } from '../configs';
 import { WebSocketProvider } from 'ethers';
 
@@ -26,6 +30,11 @@ function renderNetworkDataInfo(data: string | Record<string, string>) {
   if (typeof data === 'string') return 'custom node not supported yet!';
   if ('infura' in data) {
     return `\x1b[32mInfura\x1b[0m. ${renderInfuraProviderInfo(data.infura)}`;
+  }
+  if ('json-rpc' in data) {
+    return `\x1b[JSON RPC\x1b[0m. ${renderJsonRPCProviderInfo(
+      data['json-rpc']
+    )}`;
   }
 }
 

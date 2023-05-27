@@ -1,7 +1,7 @@
 import { InfuraProvider } from 'ethers';
 
 export function createProvider(option: string) {
-  return InfuraProvider.getWebSocketProvider(undefined, option);
+  return new InfuraProvider('mainnet', option) as any;
 }
 
 export function renderProviderInfo(option: string) {

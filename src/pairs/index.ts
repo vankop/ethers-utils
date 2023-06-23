@@ -61,8 +61,8 @@ export function addSpan(name: string, pair: string, t0: string, t1: string) {
     if (compareAsc(d1, d0) !== 1)
       throw new Error('1st timestamp should be lower 2nd');
     const diff = differenceInDays(d1, d0);
-    if (diff > 14)
-      throw new Error('Too large span. 14 calendar days as maximum');
+    if (diff > 30)
+      throw new Error('Too large span. 30 calendar days as maximum');
 
     const [blockStart, blockEnd] = await Promise.all([
       findBlockByTimestamp(i0, provider),

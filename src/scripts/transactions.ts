@@ -78,6 +78,7 @@ async function intersection() {
   const {
     type,
     timestamp: ts = false,
+    silent = false,
     ...rest
   } = keyValueOptionsToObject(options);
   const keys = Object.keys(rest);
@@ -113,7 +114,7 @@ async function intersection() {
       spans.push([key, value]);
     }
   }
-  const result = await transactionsIntersection(spans, timestamp);
+  const result = await transactionsIntersection(spans, timestamp, !!silent);
 
   if (!result) {
     console.log(bold('No match was found!'));
@@ -121,6 +122,11 @@ async function intersection() {
   }
 
   const [addresses, map] = result;
+
+  if (silent) {
+    console.log(Array.from(addresses).join("\n"));
+    return;
+  }
 
   console.log(`${bold(`${addresses.size} Wallets`)}:`);
   columns(

@@ -83,7 +83,8 @@ export async function transactions(
 
 export async function intersection(
   spans: [string, TransactionType][],
-  timestamps: boolean
+  timestamps: boolean,
+  silent = false
 ): Promise<
   | [Set<string>, Map<string, Map<TransactionType, ImprovedTransactions[]>>]
   | null
@@ -113,7 +114,7 @@ export async function intersection(
     }
   };
 
-  const endLoading = spinner(() => loader);
+  const endLoading = silent ? () => {} : spinner(() => loader);
   for (const span of spans.slice(0, 2)) {
     const i = spans.indexOf(span);
     const [spanName, type] = span;

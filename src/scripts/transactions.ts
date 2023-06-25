@@ -60,13 +60,17 @@ async function list() {
   const [, , , , arg0, ...options] = process.argv;
   if (!arg0) throw new Error('Span name as argument expected!');
 
-  const { type, timestamp = false } = keyValueOptionsToObject(options);
+  const {
+    type,
+    silent = false,
+    timestamp = false
+  } = keyValueOptionsToObject(options);
   if (!assetType(type)) {
     throw new Error(
       'Transaction type is wrong! Supported values are "type=buy","type=sell"'
     );
   }
-  const events = await transactions(arg0, type, !!timestamp);
+  const events = await transactions(arg0, type, !!timestamp, !!silent);
   printTable(type, events);
 }
 
@@ -78,6 +82,7 @@ async function intersection() {
   const {
     type,
     timestamp: ts = false,
+    silent = false,
     ...rest
   } = keyValueOptionsToObject(options);
   const keys = Object.keys(rest);
@@ -113,7 +118,7 @@ async function intersection() {
       spans.push([key, value]);
     }
   }
-  const result = await transactionsIntersection(spans, timestamp);
+  const result = await transactionsIntersection(spans, timestamp, !!silent);
 
   if (!result) {
     console.log(bold('No match was found!'));
@@ -121,6 +126,11 @@ async function intersection() {
   }
 
   const [addresses, map] = result;
+
+  if (silent) {
+    console.log(Array.from(addresses).join('\n'));
+    return;
+  }
 
   console.log(`${bold(`${addresses.size} Wallets`)}:`);
   columns(

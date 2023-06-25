@@ -15,7 +15,8 @@ export type ImprovedTransactions = Transaction & { timestamp?: number };
 export async function transactions(
   spanName: string,
   type: TransactionType,
-  timestamps: boolean
+  timestamps: boolean,
+  silent: boolean
 ): Promise<ImprovedTransactions[]> {
   const {
     pairName,
@@ -27,7 +28,7 @@ export async function transactions(
   console.log(`Span from ${block(start)} to ${block(end)}`);
 
   let loader = `Loading ${pairName} ${type} transactions..`;
-  const endLoading = spinner(() => loader);
+  const endLoading = silent ? () => {} : spinner(() => loader);
   try {
     let events = await allTransactionsInRange(
       start,
@@ -83,7 +84,8 @@ export async function transactions(
 
 export async function intersection(
   spans: [string, TransactionType][],
-  timestamps: boolean
+  timestamps: boolean,
+  silent = false
 ): Promise<
   | [Set<string>, Map<string, Map<TransactionType, ImprovedTransactions[]>>]
   | null
@@ -113,7 +115,7 @@ export async function intersection(
     }
   };
 
-  const endLoading = spinner(() => loader);
+  const endLoading = silent ? () => {} : spinner(() => loader);
   for (const span of spans.slice(0, 2)) {
     const i = spans.indexOf(span);
     const [spanName, type] = span;

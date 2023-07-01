@@ -25,7 +25,7 @@ export async function transactions(
     blockSpan: [start, end]
   } = getSpanDataForTransaction(spanName);
   const provider = createProvider();
-  console.log(`Span from ${block(start)} to ${block(end)}`);
+  if (!silent) console.log(`Span from ${block(start)} to ${block(end)}`);
 
   let loader = `Loading ${pairName} ${type} transactions..`;
   const endLoading = silent ? () => {} : spinner(() => loader);

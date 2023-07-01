@@ -71,6 +71,12 @@ async function list() {
     );
   }
   const events = await transactions(arg0, type, !!timestamp, !!silent);
+  if (silent) {
+    const isBuy = isBuyLike(type);
+    const addrs = events.map((e) => (isBuy ? e.to : e.from));
+    console.log(Array.from(addrs).join('\n'));
+    return;
+  }
   printTable(type, events);
 }
 
